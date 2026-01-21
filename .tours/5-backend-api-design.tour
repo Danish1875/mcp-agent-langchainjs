@@ -1,0 +1,74 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "5 - Backend API Design",
+  "description": "Design AI-friendly APIs with clear validation, error messages, and authorization. Learn patterns that make your APIs work great with LLMs.",
+  "nextTour": "6 - Infrastructure & Deployment",
+  "steps": [
+    {
+      "title": "AI-Friendly API Design Principles",
+      "description": "## Designing APIs for AI Agents - The Burger API 🍔\nThis tour explores the **backend REST API** that the AI agent interacts with through MCP tools.\n\n### Different from Human-Facing APIs\n\n**Human APIs**:\n- Terse error codes (`400`, `404`, `500`)\n- Assumption: User can guess context\n- Documentation in separate files\n\n**AI-Friendly APIs**:\n- **Descriptive error messages** for LLM to understand\n- **Self-documenting** responses with helpful hints\n- **Clear validation rules** the LLM can learn from\n- **Consistent structure** for easier parsing\n\n---\n### What We'll Cover:\n\n1. **AI-Friendly API Design** - What makes an API easy for AI to use?\n2. **Request Validation** - Handling agent requests properly\n3. **Authorization** - Securing user data\n4. **Rate Limiting** - Protecting against runaway agents\n5. **Database Patterns** - Cosmos DB integration\n"
+    },
+    {
+      "file": "packages/burger-api/src/order.ts",
+      "description": "## Order Data Model 📋\n\n```\n┌─────────────────────────────────────────────────────────────┐\n│  ✅ Clear enums       → Status values are descriptive       │\n│  ✅ Flat structure    → Easy for LLM to understand          │\n│  ✅ Self-documenting  → Field names explain themselves      │\n│  ✅ Consistent IDs    → String IDs throughout               │\n└─────────────────────────────────────────────────────────────┘\n```\n\n---\n\n### Why This Matters for AI\n\nThe LLM receives this data as JSON. Compare:\n\n| ❌ Nested & Confusing | ✅ Flat & Clear |\n|----------------------|------------------|\n| `data.order.meta.currentState` | `order.status` |\n| `statusCode: 2` | `status: \"pending\"` |\n| Requires docs | Self-explanatory |\n\n---\n\n### 💡 Beginner:\n\nDesign your data models as if you're explaining them to someone who has never seen your codebase. That's exactly what the LLM experiences!",
+      "line": 1
+    },
+    {
+      "file": "packages/burger-api/src/functions/orders-post.ts",
+      "line": 62,
+      "selection": {
+        "start": {
+          "line": 62,
+          "character": 7
+        },
+        "end": {
+          "line": 72,
+          "character": 10
+        }
+      },
+      "title": "Clear Authorization Errors",
+      "description": "## Authorization with Helpful Error Messages 🔐\n\nNotice how we handle unauthorized users:\n\n```typescript\n...\n  return {\n    status: 401,\n    jsonBody: {\n      error: `The specified userId is not registered. Please login to get a valid userId at: ${registrationUrl}`,\n...\n```\n\n**LLM response**:\n```\nI can't place your order because you're not logged in yet. \nPlease visit https://burgers.example.com to create an account \nand get a valid userId.\n```\n\n### Why This Is Great for LLMs\n\n**Bad error**:\n```json\n{ \"error\": \"Invalid request\" }\n```\n\n**LLM thinks**: \"What's invalid? Should I retry? Ask user?\"\n\n**Good error**:\n```json\n{\n  \"error\": \"Order cannot exceed 50 burgers in total. You requested 75.\"\n}\n```\n\n---\n### Key Design Principles\n\n```\n┌────────────────────────────────────────────────────┐\n│ 1. Explicit Error Messages                         │\n│    \"userId 'abc' not found. Please ask user to     │\n│     log in at https://...\"                         │\n│                                                    │\n│ 2. Clear Validation Rules                          │\n│    \"Order cannot exceed 50 burgers in total\"       │\n│                                                    │\n│ 3. Actionable Guidance                             │\n│    \"Too many active orders. Limit is 5 per user.   │\n│     Please cancel an existing order first.\"        │\n│                                                    │\n│ 4. Structured Responses                            │\n│    Always return JSON, never plain text            │\n└────────────────────────────────────────────────────┘\n```\n\nLLMs Read Error Messages. When your API returns an error, the **LLM sees it** and decides what to do:\n\n### Error-Driven Learning\n\nLLMs **learn from errors** during a conversation:\n\n**First attempt**:\n```\nLLM: place_order({ userId: \"abc\", items: [...] })\nAPI: Error: userId 'abc' not found. Please log in.\nLLM: \"I see you're not logged in. Please visit https://...\"\n```\n\n**Next time** (same session):\n```\nLLM: \"Before I can order, you'll need to log in at...\"\n```\n\nThe LLM **remembers** the error pattern and **proactively** handles it!\n"
+    },
+    {
+      "file": "packages/burger-api/src/functions/orders-post.ts",
+      "line": 82,
+      "selection": {
+        "start": {
+          "line": 82,
+          "character": 7
+        },
+        "end": {
+          "line": 90,
+          "character": 10
+        }
+      },
+      "title": "Business Rule Validation",
+      "description": "## Enforcing Business Rules Clearly 📋\n\nHere's how we enforce the \"max 5 active orders\" rule:\n\n```typescript\n...\nif (activeOrdersFiltered.length >= 5) {\n  return {\n    status: 429,\n    jsonBody: { \n      error: 'Too many active orders: limit is 5 per user' \n    },\n  };\n} //...\n```\n\n### Why This Design?\n\n**Clear limit**: \"5 per user\" (not ambiguous)\n\n**Specific status code**: `429 Too Many Requests`\n\n**Actionable error**: LLM knows what to tell user\n\n**Without limits**, an AI agent could:\n\n```\n┌─────────────────────────────────────────────────────────────┐\n│  🔄 Create unlimited orders accidentally (loop bug)        │\n│  🎯 Be exploited through prompt injection                  │\n│  💥 Overwhelm the system with requests                     │\n└─────────────────────────────────────────────────────────────┘\n```\n\nWhen LLM hits this limit:\n\n```\nUser: \"Order another cheeseburger\"\n\nLLM calls: place_order(...)\n\nAPI returns: \"Too many active orders: limit is 5 per user\"\n\nLLM responds:\n\"You currently have 5 active orders, which is the maximum \nallowed. Would you like me to:\n1. Check the status of your existing orders?\n2. Cancel one of your pending orders?\n3. Wait for one to be completed?\"\n```\n\n**The LLM**:\n1. Understands the limit (5)\n2. Knows the constraint (active orders)\n3. Suggests solutions (check status, cancel, wait)\n\nThis is a **business logic rate limit**, not just a request rate limit. It prevents abuse at the domain level, which is especially important when AI can make decisions autonomously.\n\n---\n### Validation Layers\n\nNotice the **multiple validation layers**:\n\n```typescript\n// Layer 1: Type validation (Zod in MCP tools)\nschema: z.object({\n  quantity: z.number().int().min(1),\n})\n\n// Layer 2: Business logic (Backend API)\nif (totalBurgerCount > 50) return error;\n\n// Layer 3: Authorization (Backend API)\nif (!userExists) return error;\n\n// Layer 4: Resource limits (Backend API)\nif (activeOrders >= 5) return error;\n```\n\n**Why separate layers?**\n\n1. **Defense in depth** - Multiple checks prevent bad data\n2. **Different concerns** - Type safety ≠ business rules\n3. **Different locations** - MCP server vs backend API\n4. **Fail fast** - Type errors caught before expensive DB calls"
+    },
+    {
+      "file": "packages/burger-api/src/functions/orders-post.ts",
+      "line": 154,
+      "selection": {
+        "start": {
+          "line": 154,
+          "character": 7
+        },
+        "end": {
+          "line": 165,
+          "character": 55
+        }
+      },
+      "title": "Smart Estimated Completion Time",
+      "description": "## Dynamic Estimation Based on Order Size ⏰\n\nNotice how we calculate estimated completion time:\n\n```typescript\nconst now = new Date();\nconst burgerCount = orderItems.reduce(\n  (sum, item) => sum + item.quantity, \n  0\n...\n```\n\n---\n\n### Estimation Logic\n\n```\nBase time:    3-5 minutes\n\n1-2 burgers:  3-5 minutes\n3 burgers:    4-6 minutes  (+1)\n4 burgers:    5-7 minutes  (+2)\n10 burgers:   11-13 minutes (+8)\n```\n\n**Formula**: `base + (count - 2)` for count > 2\n\n---\n\n### Why Random Range?\n\n**Fixed time** (bad):\n```typescript\nconst estimatedMinutes = 5;  // Always 5 minutes\n```\n\n**Problem**: Feels unrealistic, users notice pattern\n\n**Random range** (good):\n```typescript\nconst estimatedMinutes = random(3, 5);\n```\n\n**Benefit**: More realistic, accounts for kitchen variability\n\n---\n\n### Why Scale with Quantity?\n\n**Real-world physics**:\n- 1 burger: 5 minutes\n- 10 burgers: Not 50 minutes! (parallel cooking)\n- But also not 5 minutes (limited grill space)\n\n**Our formula**:\n- **Assumes some parallelism** (not linear)\n- **But scales up** for large orders\n- **Balance** between realistic and performant\n"
+    },
+    {
+      "file": "packages/burger-api/src/db-service.ts",
+      "description": "## The Database Service 🗄️\n\n```typescript\nexport class DbService {\n    ...\n```\n\n### Key Patterns\n\n```\n┌─────────────────────────────────────────────────────────────┐\n│  Singleton        → Reuse connection across requests        │\n│  Lazy init        → Connect on first use                    │\n│  Local fallback   → Works without Cosmos DB                 │\n└─────────────────────────────────────────────────────────────┘\n```\n\nThe **fallback pattern** means the API works locally without any cloud dependencies!\n\n```\nif (cosmosAvailable) {\n  → Use Cosmos DB\n} else {\n  → Use local JSON data\n}\n```\n\nThis makes development and testing much easier.\n\n---\n\n### Querying CosmosDB\n\n```typescript\n    async getBurgers(): Promise<Burger[]> {\n    if (this.isCosmosDbInitialized) {\n      try {\n        const querySpec = {\n          query: 'SELECT * FROM c',\n        };\n        const { resources } = await this.burgersContainer!.items.query(querySpec).fetchAll();\n        return (resources as Burger[]).map(stripUnderscoreProperties);\n      } catch (error) {\n        console.error('Error fetching burgers from Cosmos DB:', error);\n        return [...this.localBurgers];\n      }\n    }\n\n    return [...this.localBurgers];\n  }\n```\nResilience pattern:\n```\n┌─────────────────────────────────────────────────────────────┐\n│  1. Check if Cosmos DB is initialized                       │\n│  2. Try the database query                                  │\n│  3. Catch errors → fallback to local data                   │\n│  4. Return consistent format either way                     │\n└─────────────────────────────────────────────────────────────┘\n```\n",
+      "line": 41
+    },
+    {
+      "title": "Backend API Best Practices",
+      "description": "## Building AI-Friendly Backend APIs ✅\n\n---\n\n### Error Messages\n\n- [ ] **Descriptive** - Explain what went wrong\n- [ ] **Actionable** - Tell user/LLM how to fix\n- [ ] **Specific** - Include relevant values (\"You requested 75, max is 50\")\n- [ ] **Contextual** - Include URLs, IDs, next steps\n- [ ] **Consistent structure** - Always return JSON\n\n**Template**:\n```\n\"<What failed>. <Why it failed>. <How to fix it>.\"\n```\n\n---\n\n### Validation\n\n- [ ] **Validate early** - Before expensive operations\n- [ ] **Multiple layers** - Type, business logic, authorization\n- [ ] **Parallel when possible** - Use Promise.all for independent checks\n- [ ] **Fail fast** - Return first error (usually)\n- [ ] **Clear error messages** - Name the invalid field\n\n---\n\n### Response Format\n\n- [ ] **Always JSON** - Never plain text\n- [ ] **Consistent structure** - Same fields for similar operations\n- [ ] **Include metadata** - Timestamps, IDs, status\n- [ ] **Self-documenting** - Field names are clear\n- [ ] **No nulls** - Omit field or use empty array/object\n\n---\n\n### Performance\n\n- [ ] **Parallel operations** - Independent validations, DB lookups\n- [ ] **Minimize DB calls** - Batch queries when possible\n- [ ] **Cache expensive operations** - Price calculations, menu data\n- [ ] **Index properly** - userId, status, createdAt fields\n- [ ] **Pagination** - For list endpoints\n\n---\n\n### Next Up: Infrastructure & Deployment 🚀\n\nNow let's deploy this to Azure with Infrastructure as Code!\n\nContinue to **Tour 6: Infrastructure & Deployment** →"
+    }
+  ]
+}

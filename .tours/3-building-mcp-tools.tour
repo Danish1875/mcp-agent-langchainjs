@@ -1,0 +1,144 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "3 - Building MCP Tools",
+  "description": "Learn to build Model Context Protocol (MCP) tools that give your agent superpowers. From simple getters to complex operations with nested schemas.",
+  "nextTour": "4 - Building the Agent API",
+  "steps": [
+    {
+      "title": "What is MCP?",
+      "description": "## MCP: The Bridge Between LLMs and APIs 🌉\n\n### The Problem\n\nYour agent (LLM) can think and reason, but it can't:\n- Read databases\n- Call REST APIs\n- Access external systems\n\n```\n┌─────────────┐           ┌──────────────┐\n│    LLM      │     ✗     │  Real World  │\n│  (Agent)    │  ←────→   │   (APIs)     │\n└─────────────┘           └──────────────┘\n```\n\n---\n\n### The Solution: MCP Tools\n\n**Model Context Protocol (MCP)** provides a **standardized protocol** for connecting AI models to external tools and data sources. Think of it as USB for AI—a universal connector.\n\n```\n┌─────────────┐           ┌──────────────┐           ┌──────────────┐\n│    LLM      │           │  MCP Server  │           │  Backend API │\n│  (Agent)    │  ←────→   │   (Tools)    │  ←────→   │  (Burgers)   │\n└─────────────┘           └──────────────┘           └──────────────┘\n   Decides               Translates                 Executes\n   what to do            LLM ↔ API                  actions\n```\n### Why MCP?\n\n```\n┌────────────────────────────────────────────────────────────────────────────────────────┐\n│         TRADITIONAL              vs           MCP                                      │\n├────────────────────────────────────────────────────────────────────────────────────────┤\n│  Custom integration per LLM      │   Standard protocol (One format works everywhere)   │\n│  Tight coupling                  │   Loose coupling                                    │\n│  Vendor lock-in                  │   Composable (Portable tools from different servers)│\n│  Reimplementation needed         │   Write once, use anywhere                          │\n└────────────────────────────────────────────────────────────────────────────────────────┘\n```\n---\n\n### In This Project\n\n```\n👤 User → 🤖 Agent API → 🔌 Burger MCP → 🍔 Burger API\n          (MCP Client)   (MCP Server)    (REST API)\n```\n\nThe MCP server acts as a **bridge**, translating AI tool calls into REST API requests.\n\n---\n\n### What We'll Build\n\n1. **MCP Server Setup** - Express + StreamableHTTP transport\n2. **Tool Registration** - How to register tools with the server. We'll explore the burger MCP server with 9 tools:\n\n    ```typescript\n    // Read operations\n    get_burgers()                    // List all burgers\n    get_burger_by_id(id)             // Get one burger\n    get_toppings(category?)          // List toppings\n    get_topping_by_id(id)            // Get one topping\n    get_topping_categories()         // List categories\n\n    // Order operations\n    get_orders(userId, status?, last?) // List orders\n    get_order_by_id(id, userId)        // Get one order\n    place_order(userId, items, ...)    // Create order\n    delete_order_by_id(id, userId)     // Cancel order\n    ```\n\n3. **Schema Definition** - Using Zod for type-safe parameters\n4. **API Integration** - Connecting tools to your backend"
+    },
+    {
+      "file": "packages/burger-mcp/src/server.ts",
+      "line": 2,
+      "selection": {
+        "start": {
+          "line": 2,
+          "character": 1
+        },
+        "end": {
+          "line": 49,
+          "character": 8
+        }
+      },
+      "title": "MCP Server Setup: Endpoint handler + Transport Config",
+      "description": "## The MCP Server Entry Point 🚀\n\n```typescript\nimport { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';\nimport express from 'express';\n```\n\n---\n\n### Architecture Choice: Express + MCP\n\n```\n┌─────────────────────────────────────────────────────────────┐\n│                    MCP SERVER STACK                         │\n├─────────────────────────────────────────────────────────────┤\n│  📡 Express.js          →  HTTP request handling            │\n│  🔌 StreamableHTTP      →  MCP protocol transport           │\n│  🔧 McpServer           →  Tool registration & execution    │\n│  ☁️ Azure Functions     →  Serverless hosting               │\n└─────────────────────────────────────────────────────────────┘\n```\n\n### Why Express?\n\n| Reason | Benefit |\n|--------|----------|\n| Simple HTTP | Easy endpoint setup |\n| Middleware | Logging, auth, CORS |\n| Azure compatible | Easy Function deployment |\n\n---\n\n### Handling MCP Requests 📡\n\n```typescript\napp.all('/mcp', async (request, response) => {\n  // Handle all MCP requests on a single endpoint\n});\n```\n\n### Request Flow\n\n```\n┌─────────────────────────────────────────────────────────────┐\n│  Client Request → POST /mcp                                 │\n│       ↓                                                     │\n│  StreamableHTTPServerTransport                              │\n│       ↓                                                     │\n│  Tool Handler Execution                                     │\n│       ↓                                                     │\n│  Response Streamed Back                                     │\n└─────────────────────────────────────────────────────────────┘\n```\n\n---\n\n### The Transport Layer\n\nMCP supports multiple transports (HTTP, WebSocket, stdio). This project uses **Streamable HTTP** because:\n- Works with serverless (Azure Functions)\n- Supports response streaming\n- Simple to deploy\n\n```typescript\nconst transport = new StreamableHTTPServerTransport({\n  sessionIdGenerator: undefined, // Stateless mode\n});\n```\n\n`sessionIdGenerator: undefined` = **stateless mode**\n- Each request is independent\n- Perfect for serverless (no sticky sessions)\n- No session tracking overhead\n\n\n```typescript\nconst server = getMcpServer();\nawait server.connect(transport);\nawait transport.handleRequest(request, response, request.body);\n```\n\n---\n\n### The Connection Flow\n\n```\n┌─────────────────────────────────────────────────────────────┐\n│  1. getMcpServer()                                          │\n│     └→ Creates server with registered tools                 │\n│                                                             │\n│  2. server.connect(transport)                               │\n│     └→ Binds server to HTTP transport                       │\n│                                                             │\n│  3. transport.handleRequest(req, res, body)                 │\n│     └→ Processes the actual MCP request                     │\n└─────────────────────────────────────────────────────────────┘\n```\n\n---\n\n### Lifecycle Management\n\n```typescript\nresponse.on('close', async () => {\n  await transport.close();\n  await server.close();\n});\n```\n\n| Event | Action | Why |\n|-------|--------|-----|\n| Response closes | Close transport | Clean up connections |\n| Transport closed | Close server | Free resources |\n\nThis cleanup is especially important for serverless—Azure Functions may reuse containers, so we don't want lingering connections from previous requests."
+    },
+    {
+      "file": "packages/burger-mcp/src/mcp.ts",
+      "line": 1,
+      "selection": {
+        "start": {
+          "line": 1,
+          "character": 1
+        },
+        "end": {
+          "line": 19,
+          "character": 2
+        }
+      },
+      "title": "Creating the MCP Server",
+      "description": "## The MCP Server Factory 🏭\n\n---\n### The MCP Server Lifecycle\n\n```\n1. Create server instance\n   ↓\n2. Register all tools (loop)\n   ↓\n3. Start server (listen for connections)\n   ↓\n4. Agent connects\n   ↓\n5. Agent lists available tools\n   ↓\n6. Agent calls tools as needed\n```\n---\n\n### Server Configuration\n\n```typescript\nexport function getMcpServer() {\n  const server = new McpServer({\n    name: 'burger-mcp',\n    version: '1.0.0',\n  });\n\n```\n\n\n| Option | Purpose | Example |\n|--------|----------|----------|\n| `name` | Identifies this MCP server | `'burger-mcp'` |\n| `version` | Semantic versioning | `'1.0.0'` |\n\n### Registering Tools with the MCP Server 🔧\n\n```typescript\n  for (const tool of tools) {\n    createMcpTool(server, tool);  // ← Register each tool\n  }\n}\n```\n\nThe createMcpTool Helper:\n\n```typescript\nexport function createMcpTool(\n  server: McpServer,\n  options: {\n    name: string;\n    description: string;\n    schema?: z.ZodType;\n    handler: (args) => Promise<string>;\n  },\n)\n```\n\n---\n\nWhat This Helper Does:\n\n```\n┌─────────────────────────────────────────────────────────────┐\n│  1. Wraps error handling                                    │\n│     └→ All tools get consistent error responses             │\n│                                                             │\n│  2. Handles schema variations                               │\n│     └→ Works with/without arguments                         │\n│                                                             │\n│  3. Formats responses                                       │\n│     └→ Standard MCP content format                          │\n└─────────────────────────────────────────────────────────────┘\n```\n---"
+    },
+    {
+      "file": "packages/burger-mcp/src/tools.ts",
+      "line": 1,
+      "selection": {
+        "start": {
+          "line": 1,
+          "character": 1
+        },
+        "end": {
+          "line": 1,
+          "character": 40
+        }
+      },
+      "title": "Tools Definitions",
+      "description": "## Defining Tool Schemas with Zod 📋\n\n```typescript\nimport { z } from 'zod/v3';\n...\nz.object({\n  id: z.string().describe('ID of the burger')\n})\n```\n\n**Zod** is a TypeScript-first schema validation library. Perfect for MCP tools!\n\n```\n┌─────────────────────────────────────────────────────────────┐\n│                    ZOD BENEFITS                             │\n├─────────────────────────────────────────────────────────────┤\n│  🛡️ Type Safety    →  TypeScript types from schemas         │\n│  ✅ Validation     →  Runtime parameter checking            │\n│  📖 Documentation  →  .describe() for LLM context           │\n│  📄 JSON Schema    →  Auto-converts for MCP protocol        │\n└─────────────────────────────────────────────────────────────┘\n```\n---\n\n### Tool Anatomy\n\n```\n┌────────────────────────────────────────────────────┐\n│  name        → Unique identifier for LLM          │\n│  description → Tells LLM when to use this tool    │\n│  schema      → Input validation (optional)        │\n│  handler     → Function that does the work        │\n└────────────────────────────────────────────────────┘\n```\n\n---\n\nThe **description is critical** - it's how the LLM knows when to use this tool.\n\n**Good descriptions**:\n- ✅ \"Get a list of all burgers in the menu\"\n- ✅ \"Retrieve all available burger options\"\n- ✅ \"Fetch the complete burger catalog\"\n\n**Bad descriptions**:\n- ❌ \"Burgers\" (Too vague)\n- ❌ \"Gets burgers from the database\" (Implementation details)\n- ❌ \"GET /api/burgers\" (HTTP endpoint, not semantic meaning)\n\n**Best practice**: Describe **what** the tool does, not **how** it does it."
+    },
+    {
+      "file": "packages/burger-mcp/src/tools.ts",
+      "line": 6,
+      "selection": {
+        "start": {
+          "line": 6,
+          "character": 1
+        },
+        "end": {
+          "line": 11,
+          "character": 4
+        }
+      },
+      "title": "Simple Tool (Zero args): get_burgers",
+      "description": "## The Simplest Tool: No Parameters 📝\n\nLet's start with the easiest tool - one with **no parameters**:\n\n```typescript\n{\n  name: 'get_burgers',\n  description: 'Get a list of all burgers in the menu',\n  ...\n}\n```\n\n**No Schema == No Arguments** This tool doesn't need a `schema` because it takes no arguments.\n\n```\n👤 User: \"What burgers do you have?\"\n\n🤖 LLM: I should call get_burgers (no args needed)\n\n🔧 Tool: fetchBurgerApi('/api/burgers')\n\n📦 Result: [{name: \"Classic\"}, {name: \"Bacon\"}...]\n```"
+    },
+    {
+      "file": "packages/burger-mcp/src/tools.ts",
+      "line": 13,
+      "selection": {
+        "start": {
+          "line": 13,
+          "character": 1
+        },
+        "end": {
+          "line": 22,
+          "character": 4
+        }
+      },
+      "title": "Parameterized Tool: get_burger_by_id",
+      "description": "## Tools With Parameters: Zod Schemas 🎯\n\nNow let's add a **required parameter** using Zod:\n\n```typescript\n{\n  name: 'get_burger_by_id',\n  description: 'Get a specific burger by its ID',\n  schema: z.object({\n    id: z.string().describe('ID of the burger'),\n  }),\n  handler: async (args) => {\n    return await fetchBurgerApi(`/burgers/${args.id}`);\n  },\n}\n```\n\n---\n\n### The Schema in Action\n\n```\n┌─────────────────────────────────────────────────────────────┐\n│  1. 🤖 LLM sees description → \"Gets one specific burger\"   │\n│  2. 🤖 LLM sees schema → \"Needs an id parameter\"           │\n│  3. 🤖 LLM provides → { id: \"bacon-burger\" }                │\n│  4. ✅ Zod validates → Parameter is a string               │\n│  5. 🔧 Handler runs → fetchBurgerApi('/api/burgers/bacon') │\n└─────────────────────────────────────────────────────────────┘\n```\n\n---\n\n**Zod provides**:\n1. **Type safety** - TypeScript knows args.id is a string\n2. **Runtime validation** - Invalid inputs rejected before handler runs\n3. **Schema inference** - MCP auto-generates JSON Schema from Zod\n4. **Composability** - Nest schemas, add refinements, etc."
+    },
+    {
+      "file": "packages/burger-mcp/src/tools.ts",
+      "line": 50,
+      "selection": {
+        "start": {
+          "line": 50,
+          "character": 1
+        },
+        "end": {
+          "line": 66,
+          "character": 4
+        }
+      },
+      "title": "Multiple Optional Parameters: get_orders",
+      "description": "## Filtering with Multiple Optional Parameters 🎛️\n\nNow we have **three optional parameters** for flexible filtering:\n\n```typescript\n{\n  schema: z.object({\n    userId: z\n      .string()\n      .optional()\n      .describe('Filter orders by user ID'),\n    status: z\n      .string()\n      .optional()\n      .describe('Filter by order status...'),\n    last: z\n      .string()\n      .optional()\n      .describe('Filter orders created in the last X...'),\n  }),\n    // ...\n```\n\n### Optional Parameters Pattern\n\n```\n┌─────────────────────────────────────────────────────────────┐\n│  z.string().optional()                                      │\n│       ↓                                                     │\n│  LLM learns: \"These filters are available but not required\" │\n│       ↓                                                     │\n│  Handler: Builds query params conditionally                 │\n└─────────────────────────────────────────────────────────────┘\n```\n\n---\n### LLM Query Intelligence\n\nWatch how the LLM adapts to different questions:\n\n**User**: \"What are my orders?\"\n- Context: userId = \"user-123\" (from auth)\n- Calls: `get_orders({ userId: \"user-123\" })`\n\n**User**: \"What orders are pending?\"\n- Calls: `get_orders({ status: \"pending\" })`\n\n**User**: \"What are my pending orders from the last hour?\"\n- Calls: `get_orders({ userId: \"user-123\", status: \"pending\", last: \"1h\" })`\n\n**The LLM combines**:\n- User's question\n- Available parameters\n- Context (like userId from auth)\n\n---"
+    },
+    {
+      "file": "packages/burger-mcp/src/tools.ts",
+      "line": 78,
+      "selection": {
+        "start": {
+          "line": 78,
+          "character": 1
+        },
+        "end": {
+          "line": 100,
+          "character": 4
+        }
+      },
+      "title": "Complex Nested Schema: place_order",
+      "description": "## Complex Tool: Nested Arrays and Objects 🎯\n\nThis is the most sophisticated tool - it accepts **nested objects with arrays**:\n\n```typescript\n{\n  schema: z.object({\n    userId: z.string().describe('ID of the user placing the order'),\n    items: z\n      .array(\n        z.object({\n          burgerId: z.string().describe('ID of the burger'),\n          quantity: z\n            .number()\n            .int()\n            .min(1)\n            .describe('Quantity of the burger'),\n          extraToppingIds: z\n            .array(z.string())\n            .optional()\n            .describe('List of extra topping IDs'),\n        }),\n      )\n      .min(1)\n      .describe('List of items in the order'),\n    nickname: z\n      .string()\n      .optional()\n      .describe('Optional nickname for the order'),\n  }),\n  // ...\n}\n```\n\n---\n\n### Schema Breakdown\n\n```\n┌─────────────────────────────────────────────────────────────┐\n│  z.array()              →  Lists of items                   │\n│  z.object() in array    →  Structured list items            │\n│  .min(1)                →  Validation constraints           │\n│  .nonempty()            →  At least one item required       │\n└─────────────────────────────────────────────────────────────┘\n```\n\n---\n\n### How the LLM Handles this\n\nUser says: **\"Order 2 cheeseburgers with bacon and a veggie burger\"**\n\nLLM constructs:\n```typescript\nplace_order({\n  userId: \"user-123\",\n  items: [\n    {\n      burgerId: \"burger-classic\",\n      quantity: 2,\n      extraToppingIds: [\"topping-bacon\"]\n    },\n    {\n      burgerId: \"burger-veggie\",\n      quantity: 1,\n      extraToppingIds: []\n    }\n  ]\n})\n```\n\n**Notice**:\n- Two items in array (one per burger type)\n- Quantity extracted from \"2 cheeseburgers\"\n- Extra topping \"bacon\" mapped to ID\n- No nickname provided (optional omitted)"
+    },
+    {
+      "title": "MCP Tool Design Best Practices",
+      "description": "## Building Great Tools: Checklist ✅\n\n---\n\n### Tool Naming\n\n- [ ] **Verb-noun pattern** - `get_burgers`, `place_order`, `delete_order`\n- [ ] **Descriptive** - Clear what the tool does\n- [ ] **Consistent** - Same naming convention across all tools\n- [ ] **No abbreviations** - `get_burger_by_id` not `getBurgById`\n\n---\n\n### Descriptions\n\n- [ ] **Semantic meaning** - What it does, not how\n- [ ] **Include when to use** - \"Use this when user wants...\"\n- [ ] **Mention requirements** - \"Requires userId\" if applicable\n- [ ] **Avoid technical jargon** - No HTTP methods, endpoints\n- [ ] **Concise** - One sentence when possible\n\n---\n\n### Schema Design\n\n- [ ] **Required params clearly marked** - No `.optional()` unless truly optional\n- [ ] **Types match reality** - String for IDs, number for quantities\n- [ ] **Validation rules** - `.min()`, `.max()`, `.int()` as needed\n- [ ] **Parameter descriptions** - Every field has `.describe()`\n- [ ] **Examples in descriptions** - Show format like `\"60m\"` or `\"2h\"`\n- [ ] **Sensible defaults** - Avoid requiring params that have obvious defaults\n\n---\n\n### Error Handling\n\n- [ ] **Try-catch all handlers** - Never let exceptions crash server\n- [ ] **Meaningful error messages** - Tell LLM what went wrong\n- [ ] **Action hints** - Suggest what to do (\"Please ask user to...\")\n- [ ] **Logging** - Console.error for debugging\n- [ ] **Error flag** - Set `isError: true` in response\n\n---\n\n### Testing\n\n- [ ] **Test happy path** - Valid inputs work\n- [ ] **Test validation** - Invalid inputs rejected\n- [ ] **Test error cases** - Backend failures handled gracefully\n- [ ] **Test with real LLM** - Does it use the tool correctly?\n- [ ] **Test edge cases** - Empty strings, null, undefined, very large values\n\n---\n\n### 💡 Beginner: Start Small\n\nWhen building your first tools:\n\n1. **Start with GET operations** (read-only, safer)\n2. **One parameter at a time** (simple schemas)\n3. **Test with curl first** (before connecting LLM)\n4. **Add validation gradually** (start permissive, tighten)\n\n**Example progression**:\n```typescript\n// Step 1: No params\nget_items() → returns all\n\n// Step 2: Required param\nget_item_by_id(id) → returns one\n\n// Step 3: Optional filter\nget_items(category?) → returns filtered\n\n// Step 4: Complex nested\ncreate_item({ name, options: [...] })\n```\n\n---\n\n### 🔬 Advanced: Production Considerations\n\n**Rate Limiting**:\n```typescript\nhandler: async (args) => {\n  await rateLimiter.check(userId);\n  return await fetchBurgerApi(...);\n}\n```\n\n**Caching**:\n```typescript\nhandler: async (args) => {\n  const cached = await cache.get(args.id);\n  if (cached) return cached;\n  const result = await fetchBurgerApi(...);\n  await cache.set(args.id, result, { ttl: 60 });\n  return result;\n}\n```\n\n**Observability**:\n```typescript\nhandler: async (args) => {\n  const span = tracer.startSpan('get_burgers');\n  try {\n    const result = await fetchBurgerApi(...);\n    span.setStatus({ code: SpanStatusCode.OK });\n    return result;\n  } catch (error) {\n    span.setStatus({ code: SpanStatusCode.ERROR });\n    throw error;\n  } finally {\n    span.end();\n  }\n}\n```\n\n**Authorization**:\n```typescript\nhandler: async (args) => {\n  if (!canAccessOrder(args.userId, args.orderId)) {\n    throw new Error('Unauthorized: You can only access your own orders');\n  }\n  return await fetchBurgerApi(...);\n}\n```\n\n---\n\n### Next Up: Building the Agent API 🤖\n\nNow that you can build powerful tools, let's connect them to the agent!\n\nContinue to **Tour 4: Building the Agent API** →"
+    },
+    {
+      "file": "packages/burger-mcp/src/tools.ts",
+      "line": 117,
+      "selection": {
+        "start": {
+          "line": 117,
+          "character": 1
+        },
+        "end": {
+          "line": 142,
+          "character": 4
+        }
+      },
+      "title": "API Integration: The fetchBurgerApi Helper",
+      "description": "## Connecting to the Backend API 🔗\n\n```typescript\nasync function fetchBurgerApi(url: string, options: RequestInit = {}): Promise<string> {\n ...\n```\n\n---\n\n### Key Patterns\n\n```\n┌─────────────────────────────────────────────────────────────┐\n│  1. URL Construction                                        │\n│     └→ Combines base URL with endpoint path                 │\n│                                                             │\n│  2. Error Handling                                          │\n│     └→ Throws on non-OK responses (MCP will catch it)       │\n│                                                             │\n│  3. JSON Stringification                                    │\n│     └→ MCP tools return strings, not objects                │\n└─────────────────────────────────────────────────────────────┘\n```\n\n---\n\n### Why Return Strings?\n\nMCP tool responses are **text content**. The LLM will:\n1. 📦 Receive the JSON string\n2. 🧠 Parse and understand the data\n3. 💬 Format a human-readable response\n\n---\n\n**🎉 Tour 3 Complete!**\n\nYou now know how to build MCP tools. Next, let's see how the Agent API connects to these tools!"
+    }
+  ]
+}

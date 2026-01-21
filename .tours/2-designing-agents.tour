@@ -1,0 +1,112 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "2 - Designing AI Agents",
+  "description": "Master the art of agent design through system prompts, role definition, and LLM configuration. Learn how to shape agent personality and behavior.",
+  "nextTour": "3 - Building MCP Tools",
+  "steps": [
+    {
+      "title": "Agent Design: The 90/10 Rule",
+      "description": "## Welcome to Agent Design! 🎨\n\n### The Golden Rule\n\n```\n┌────────────────────────────────────────────────────────┐\n│  Agent Behavior = 90% Prompt + 10% Code               │\n└────────────────────────────────────────────────────────┘\n```\n\nMost of your agent's personality, capabilities, and behavior comes from the **system prompt**, not the code!\n\n---\n\n### What We'll Cover\n\n1. **System Prompt Anatomy** - The DNA of your agent\n2. **Role Definition** - Who is the agent?\n3. **Guardrails & Boundaries** - What can it NOT do?\n4. **Context vs Instructions** - Facts vs behavior\n5. **Task Definition** - Step-by-step workflows\n6. **LLM Configuration** - Model selection & settings\n7. **Chat History** - Memory and context\n\n---\n\n### 💡 Let's think of It Like Hiring\n\nImagine you're hiring a customer service agent. You'd give them:\n- **Role**: \"You're a burger ordering specialist\"\n- **Rules**: \"Always be polite, never share personal data\"\n- **Knowledge**: \"We include fries with every order here\"\n- **Process**: \"1. Greet customer, 2. Take order, 3. Confirm\"\n\nThe system prompt is your **employee handbook**!\n\n---\n\n### 🔬 Why Prompts Dominate\n\nLLMs are **few-shot learners** - they adapt to patterns in context. The system prompt:\n- Sets **behavior patterns** (tone, style)\n- Defines **capabilities** (what tools to use when)\n- Establishes **constraints** (what NOT to do)\n- Provides **examples** (through task descriptions)\n\nCode just **executes** what the prompt designs."
+    },
+    {
+      "file": "packages/agent-api/src/functions/chats-post.ts",
+      "line": 13,
+      "selection": {
+        "start": {
+          "line": 13,
+          "character": 1
+        },
+        "end": {
+          "line": 40,
+          "character": 3
+        }
+      },
+      "title": "The Complete System Prompt",
+      "description": "## Anatomy of a System Prompt 📜\n\nHere's our complete agent system prompt broken into **four critical sections**:\n\n```markdown\n## Role\nYou an expert assistant that helps users...\n\n## Context  \nThe restaurant is called Contoso Burgers...\n\n## Task\n1. Help the user with their request\n2. ALWAYS generate 3 very brief follow-up questions\n\n## Instructions\n- Always use the tools provided\n- If you get any errors... try again\n- Never make up information\n```\n\n---\n\n### The Four Sections Explained\n\n```\n┌─────────────────────────────────────────────────────────┐\n│  ## Role         → WHO is the agent?                    │\n│  ## Context      → WHAT does it need to know?           │\n│  ## Task         → WHAT should it do?                   │\n│  ## Instructions → HOW should it behave?                │\n└─────────────────────────────────────────────────────────┘\n```\n\n| Section | Purpose | Example |\n|---------|---------|----------|\n| **Role** | Identity & expertise | \"Expert burger ordering assistant\" |\n| **Context** | Static knowledge | \"Contoso Burgers includes fries\" |\n| **Task** | Primary objectives | \"Help users order burgers\" |\n| **Instructions** | Behavioral rules | \"Always use tools, never make up info\" |\n\n---\n\n### Setting Boundaries 🚧\n\n```markdown\nOnly answer to requests that are related to burger orders and the menu.\nIf the user asks for something else, politely inform them...\n```\n\n#### Why Guardrails Are Critical\n\nGuardrails protect against:\n\n```\n┌────────────────────────────────────────────────────────────┐\n│  🎯 Misuse      → Agent stays in its lane                 │\n│  🌀 Hallucination → Less temptation to make things up     │\n│  📉 Quality     → Focused agents give better answers      │\n│  🔒 Security    → Limits potential attack surface         │\n└────────────────────────────────────────────────────────────┘\n```\n\n#### Common Guardrail Patterns\n\n| Pattern | Example | Why It Helps |\n|---------|----------|---------------|\n| Domain restriction | \"Only answer about burgers\" | Prevents off-topic responses |\n| Graceful refusal | \"Politely inform them you can't help\" | Good UX for edge cases |\n| No fabrication | \"Never make up information\" | Data integrity |\n| Tool-only data | \"Always use tools to get info\" | Prevents hallucination |\n\nGuardrails are your **first line of defense** against prompt injection attacks. An agent that \"only talks about burgers\" is much harder to exploit than a general-purpose assistant.\n\n---\n\n### Providing Business Context 📚\n\n```markdown\n## Context\nThe restaurant is called Contoso Burgers.\nContoso Burgers always provides french fries and a fountain drink...\n```\n\n#### Why Context Matters\n\nWithout this context, the agent might:\n- ❌ Ask users if they want fries (they're included!)\n- ❌ Not know the restaurant name\n- ❌ Give inconsistent brand messaging\n\nWith context:\n- ✅ Knows fries are always included\n- ✅ Uses correct restaurant name\n- ✅ Maintains brand consistency\n\nPut **frequently-needed facts** in context. The agent won't need to look them up every time, making responses faster and more consistent.\n\n---\n### Prompt Engineering Patterns\n\nThis prompt uses several proven techniques:\n\n1. **Markdown Structure** (`##` headers)  \n   → Helps LLM parse distinct sections\n\n2. **Imperative Voice** (\"Always use...\")  \n   → Clear, direct commands\n\n3. **Specific Examples** (Follow-up question format)  \n   → Shows desired output style\n\n4. **Negative Constraints** (\"Never make up...\")  \n   → Explicit boundaries prevent hallucinations\n\n5. **Numbered Steps** (Task section)  \n   → Structured workflow for complex tasks\n\n### Recommended Tips\n\n| ✅ Good | ❌ Avoid |\n|---------|----------|\n| \"Expert burger order assistant\" | \"You are a helpful AI\" (too vague) |\n| \"Specialist in menu recommendations\" | \"You can do anything\" (too broad) |\n| Specific domain expertise | Conflicting roles |"
+    },
+    {
+      "file": "packages/agent-api/src/functions/chats-post.ts",
+      "line": 21,
+      "selection": {
+        "start": {
+          "line": 21,
+          "character": 1
+        },
+        "end": {
+          "line": 26,
+          "character": 2
+        }
+      },
+      "title": "Task Section: Follow-Up Questions",
+      "description": "## The Follow-Up Question Pattern 🔄\n\nNotice this critical instruction in the **Task** section:\n\n```markdown\n2. ALWAYS generate 3 very brief follow-up questions based on the conversation\n   and possible next steps the user can take.\n\n   Follow-up questions must be returned using XML tags...\n```\n\n---\n\n### Why Follow-Up Questions?\n\nThis pattern **drives engagement** by:\n\n1. **Reducing friction** - Users don't have to think what to ask next\n2. **Guiding discovery** - Suggests capabilities they didn't know about\n3. **Preventing dead ends** - Always offers a path forward\n4. **Conversational flow** - Feels like a natural dialogue\n\n---\n\n### Example Flow\n\n**User**: \"What burgers do you have?\"\n\n**Agent Response**:\n```\nWe have Classic Cheeseburger, Bacon BBQ, Mushroom Swiss...\n\n<follow-up-questions>\n<question>What toppings can I add to my burger?</question>\n<question>Can I see the nutrition info?</question>\n<question>How do I place an order?</question>\n</follow-up-questions>\n```\n\nNow the user has **3 clear next steps** instead of a dead end!\n\n---\n\n### Structured Output with XML\n\nWhy XML tags for follow-up questions?\n\n1. **Parsing Reliability** - Easy to extract via regex/DOM\n2. **Format Consistency** - LLM can't deviate from structure\n3. **Frontend Integration** - UI can render as clickable buttons\n4. **Hallucination Prevention** - Forces structured thinking\n\n**Alternative**: You could use JSON, but XML is more natural for LLMs to generate mid-text."
+    },
+    {
+      "file": "packages/agent-api/src/functions/chats-post.ts",
+      "line": 31,
+      "selection": {
+        "start": {
+          "line": 31,
+          "character": 1
+        },
+        "end": {
+          "line": 38,
+          "character": 3
+        }
+      },
+      "title": "Instructions Section: Guardrails",
+      "description": "## Behavioral Guardrails 🛡️\n\nThe **Instructions** section defines HOW the agent should behave:\n\n```markdown\n## Instructions\n- Always use the tools provided to you to respond.\n- If you get any errors when using a tool, analyze the error\n  message and try again with a different approach.\n- Never make up information. Only use information from the tools.\n- Never expose the userId to the user.\n```\n\n---\n\n### The Four Types of Instructions\n\n| Type | Example | Purpose |\n|------|---------|----------|\n| **Tool Usage** | \"Always use tools\" | Force function calling |\n| **Error Handling** | \"Analyze errors, try again\" | Resilience |\n| **Hallucination Prevention** | \"Never make up info\" | Reliability |\n| **Security** | \"Never expose userId\" | Data privacy |\n\n---\n\n### 💡 Why \"Always Use Tools\"?\n\nWithout this instruction:\n- Agent might **make up** burger names instead of calling `get_burgers`\n- Agent might **guess** order status instead of calling `get_order_by_id`\n- Result: **Hallucinations and incorrect information**\n\n**With this instruction**:\n- Agent is **forced** to check real data via tools\n- Answers are **accurate and verified**\n\n---\n\n### 🔬 Error Recovery Pattern\n\n```markdown\nIf you get any errors when using a tool, analyze the error\nmessage and try again with a different approach.\n```\n\nThis enables **autonomous error recovery**:\n\n**Example Flow**:\n1. Agent calls `place_order` with invalid userId\n2. Tool returns: `Error: userId 'abc' not found`\n3. Agent **analyzes** the error message\n4. Agent **asks user** to log in for a valid userId\n5. Agent **retries** with correct userId\n\n**Without this instruction**: Agent would just return the error to user.\n\n**With this instruction**: Agent **self-corrects** and guides the user to a solution."
+    },
+    {
+      "file": "packages/agent-api/src/functions/chats-post.ts",
+      "line": 85,
+      "selection": {
+        "start": {
+          "line": 85,
+          "character": 5
+        },
+        "end": {
+          "line": 91,
+          "character": 7
+        }
+      },
+      "title": "LLM Configuration: Model Selection",
+      "description": "## Configuring the Language Model 🧠\n\nHere's where we configure the **LLM (Large Language Model)** that powers the agent:\n\n---\n\n### Key Configuration Options\n\n| Option | Value | Purpose |\n|--------|-------|----------|\n| `baseURL` | Azure endpoint | Connect to Azure OpenAI |\n| `modelName` | `gpt-4o-mini` | Which model to use |\n| `streaming` | `true` | Stream responses in real-time |\n| `useResponsesApi` | `true` | Enable structured outputs |\n| `apiKey` | Token provider | Authentication |\n\n---\n\n### Model Selection Guide\n\n**gpt-4o-mini** (default here):\n- ✅ **Fast and cheap** - Great for simple tasks\n- ✅ **Good at tool calling** - Reliable function execution\n- ❌ **Less sophisticated** - May struggle with complex reasoning\n\n**gpt-4o** (production recommended):\n- ✅ **More intelligent** - Better at complex workflows\n- ✅ **Better context understanding** - Handles nuance\n- ❌ **More expensive** - Higher cost per request\n\n**Recommendation**: Start with `gpt-4o-mini` for development, upgrade to `gpt-4o` for production.\n\n---\n\n### Why Streaming?\n\n```typescript\nstreaming: true\n```\n\nEnables **real-time response streaming** instead of waiting for complete response:\n\n**Benefits**:\n1. **Better UX** - User sees progress immediately\n2. **Lower latency perception** - Feels faster even if total time is same\n3. **Interruptibility** - Can cancel mid-generation\n4. **Tool visibility** - See tool calls as they happen\n\n**Streaming Flow**:\n```\nUser: \"Order a cheeseburger\"\n\n[Stream] \"Let me help you...\"\n[Stream] [Tool: get_burgers]\n[Stream] \"I found the Classic Cheeseburger...\"\n[Stream] [Tool: place_order]\n[Stream] \"Order placed! Estimated time: 5 minutes\"\n```\n\nWithout streaming, user waits for entire response before seeing anything!"
+    },
+    {
+      "file": "packages/agent-api/src/functions/chats-post.ts",
+      "line": 92,
+      "selection": {
+        "start": {
+          "line": 92,
+          "character": 5
+        },
+        "end": {
+          "line": 98,
+          "character": 7
+        }
+      },
+      "title": "Chat History with Cosmos DB",
+      "description": "## Persistent Memory with Chat History 🧠💾\n\nThis is how we give the agent **memory** across conversations:\n\n```typescript\nconst chatHistory = new AzureCosmsosDBNoSQLChatMessageHistory({\n  sessionId,\n  userId,\n  credentials: getCredentials(),\n  containerName: 'history',\n  databaseName: 'historyDB',\n});\n```\n\n---\n\n### Why Chat History?\n\nWithout memory:\n```\nUser: \"Order a cheeseburger\"\nAgent: \"Done! Order #123\"\n\nUser: \"What's my order status?\"\nAgent: \"I don't know what you ordered\" ❌\n```\n\nWith memory:\n```\nUser: \"Order a cheeseburger\"\nAgent: \"Done! Order #123\"\n\nUser: \"What's my order status?\"\nAgent: \"Your cheeseburger (Order #123) is in preparation\" ✅\n```\n\n---\n\n### Sessions vs Users\n\n**sessionId**: Unique ID for each conversation\n- Example: `session-abc123`\n- Each chat window = new session\n- Keeps different conversations separate\n\n**userId**: Unique ID for each user\n- Example: `user-julia`\n- Same across all sessions\n- Used for personalization & authorization\n\n**Storage Structure**:\n```\nhistoryDB/\n  history/\n    userId: \"user-julia\"\n      sessionId: \"session-001\" → [msg1, msg2, msg3]\n      sessionId: \"session-002\" → [msg4, msg5]\n    userId: \"user-bob\"\n      sessionId: \"session-003\" → [msg6, msg7]\n```\n\n---\n\n### Why Cosmos DB?\n\nAlternatives to Cosmos DB for chat history:\n\n| Option | Pros | Cons |\n|--------|------|------|\n| **In-memory** | Fast, simple | Lost on restart |\n| **Redis** | Very fast | Additional service |\n| **SQL Database** | Structured queries | Slower, schema rigidity |\n| **Cosmos DB** | ✅ Scalable, ✅ NoSQL, ✅ Global | Higher cost |\n\nCosmos DB is ideal because:\n1. **Partition key** = userId → Fast user lookups\n2. **NoSQL** → Flexible message schema\n3. **Serverless tier** → Pay only for what you use\n4. **Global distribution** → Low latency worldwide\n\n**Data Model**:\n```typescript\n{\n  id: \"session-abc123\",\n  userId: \"user-julia\",\n  sessionId: \"session-abc123\",\n  messages: [\n    { role: \"human\", content: \"Order a burger\" },\n    { role: \"ai\", content: \"Done! Order #123\" },\n    { role: \"human\", content: \"What's the status?\" }\n  ],\n  title: \"Burger Order\",\n  createdAt: \"2024-01-15T10:30:00Z\"\n}\n```"
+    },
+    {
+      "file": "packages/agent-api/src/functions/chats-post.ts",
+      "line": 116,
+      "selection": {
+        "start": {
+          "line": 116,
+          "character": 5
+        },
+        "end": {
+          "line": 120,
+          "character": 7
+        }
+      },
+      "title": "Bringing It All Together",
+      "description": "## Creating the Agent 🤖\n\nNow we combine everything into a LangChain agent:\n\n```typescript\nconst agent = createAgent({\n  model,          // ← ChatOpenAI instance\n  tools,          // ← MCP tools array\n  systemPrompt: agentSystemPrompt,  // ← Our prompt!\n});\n```\n\n---\n\n### The Three Pillars of an Agent\n\n```\n┌────────────────────────────────────────────────────────────┐\n│                      🤖 AGENT                              │\n├──────────────────┬──────────────────┬──────────────────────┤\n│     🧠 Model     │    🔧 Tools      │    📜 System Prompt  │\n├──────────────────┼──────────────────┼──────────────────────┤\n│ The brain        │ The capabilities │ The personality      │\n│ Reasoning power  │ What it CAN do   │ How it SHOULD act    │\n│ GPT-4o, etc.     │ MCP tools        │ Role, rules, context │\n└──────────────────┴──────────────────┴──────────────────────┘\n```\n\n---\n\n### Agent Decision Flow\n\n1. **User asks**: \"What burgers do you have?\"\n\n2. **Prompt says**: \"Always use tools to respond\"\n\n3. **Model thinks**: \"I should call the get_burgers tool\"\n\n4. **Tools provide**: List of available burgers\n\n5. **Model formats**: \"We have Classic Cheeseburger, Bacon BBQ...\"\n\n6. **Prompt says**: \"Always generate follow-up questions\"\n\n7. **Final response**: Answer + 3 follow-up questions\n\nThe **prompt guides** what the model does with the tools!\n\n---\n\n### ReAct Pattern\n\nLangChain agents use the **ReAct (Reasoning + Acting)** pattern:\n\n```\nThought: I need to find available burgers\nAction: get_burgers\nObservation: [Classic Cheeseburger, Bacon BBQ, Mushroom Swiss]\n\nThought: Now I should suggest follow-up questions\nAction: Format response with follow-up questions\nFinal Answer: [Response with burgers + follow-ups]\n```\n\n**Key insight**: The agent **reasons about what tools to use**, not just executing a predefined workflow.\n\n**This is why it's an AGENT, not a chatbot**:\n- Chatbot: Matches patterns → Returns scripted responses\n- Agent: **Reasons** → **Selects tools** → **Takes actions** → Adapts based on results"
+    },
+    {
+      "title": "Design Best Practices Checklist",
+      "description": "## Agent Design Checklist ✅\n\nUse this checklist when designing your own agents:\n\n---\n\n### System Prompt\n\n- [ ] **Role defined clearly** - Who is the agent?\n- [ ] **Context provided** - What static facts does it need?\n- [ ] **Tasks specified** - What are the primary objectives?\n- [ ] **Instructions explicit** - How should it behave?\n- [ ] **Guardrails in place** - What should it NOT do?\n- [ ] **Examples included** - Show desired output format\n- [ ] **Error handling addressed** - How to recover from failures?\n- [ ] **Security considered** - What data is sensitive?\n\n---\n\n### LLM Configuration\n\n- [ ] **Model selected appropriately** - Right balance of speed/cost/quality?\n- [ ] **Streaming enabled** - Better UX for long responses?\n- [ ] **Temperature tuned** - Higher for creative, lower for factual?\n- [ ] **Token limits set** - Prevent runaway costs?\n- [ ] **Retry logic implemented** - Handle rate limits?\n\n---\n\n### Chat History\n\n- [ ] **Session management** - Unique IDs per conversation?\n- [ ] **User isolation** - Data separated by user?\n- [ ] **History limit** - Prevent context overflow?\n- [ ] **Storage strategy** - Where to persist messages?\n- [ ] **TTL/cleanup** - Remove old conversations?\n\n---\n\n### Testing\n\n- [ ] **Happy path tested** - Does basic flow work?\n- [ ] **Error scenarios tested** - What if tools fail?\n- [ ] **Edge cases covered** - Empty inputs, long messages?\n- [ ] **Security tested** - Can users break out of guardrails?\n- [ ] **Cost estimated** - What's the per-conversation cost?\n\n---\n\n### 💡 Beginner: Start Simple\n\nDon't over-engineer on day one:\n\n1. **Start with a simple prompt** (Role + Task only)\n2. **Add one or two tools** (Just what you need)\n3. **Test with real users** (See what breaks)\n4. **Iterate based on feedback** (Add guardrails as needed)\n\n---\n\n### 🔬 Advanced: Production Readiness\n\nBefore going to production:\n\n1. **Prompt versioning** - Track changes over time\n2. **A/B testing** - Compare prompt variants\n3. **Monitoring** - Track tool usage, errors, costs\n4. **Rate limiting** - Prevent abuse\n5. **Fallback strategies** - What if LLM is down?\n6. **Compliance** - GDPR, data residency, etc.\n\n---\n\n### Next Up: Building MCP Tools 🔧\n\nNow that you understand how to **design the agent's brain**, let's build the **tools it can use** to take actions in the real world!\n\nContinue to **Tour 3: Building MCP Tools** →"
+    }
+  ]
+}
