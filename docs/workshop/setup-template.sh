@@ -22,6 +22,7 @@ rm -rf .github/instructions/script*.md
 rm -rf .github/*.md
 rm -rf .github/prompts
 rm -rf .github/scripts
+rm -rf .tours
 rm -rf packages/agent-cli
 rm -rf packages/burger-data
 rm -rf packages/burger-webapp
