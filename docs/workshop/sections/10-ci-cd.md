@@ -75,7 +75,7 @@ jobs:
           AZURE_LOCATION: ${{ vars.AZURE_LOCATION }}
           AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
           AZURE_OPENAI_ALT_ENDPOINT: ${{ vars.AZURE_OPENAI_ALT_ENDPOINT }}
-          AZURE_OPENAI_API_KEY: ${{ vars.AZURE_OPENAI_API_KEY }}
+          AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
           AZURE_OPENAI_MODEL: ${{ vars.AZURE_OPENAI_MODEL }}
 ```
 
@@ -122,7 +122,7 @@ gh variable set AZURE_OPENAI_ALT_ENDPOINT --body "$$proxy$$"
 > gh auth login -w
 > # Set variables
 > gh variable set AZURE_OPENAI_ALT_ENDPOINT --body "<your_openai_endpoint>"
-> gh variable set AZURE_OPENAI_API_KEY --body "<your_openai_api_key>"
+> gh secret set AZURE_OPENAI_API_KEY --body "<your_openai_api_key>"
 > gh variable set AZURE_OPENAI_MODEL --body "<your_openai_model>"
 > ```
 
