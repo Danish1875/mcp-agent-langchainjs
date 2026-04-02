@@ -5,35 +5,23 @@
     "environmentName": {
       "value": "${AZURE_ENV_NAME}"
     },
-    "resourceGroupName": {
-      "value": "${AZURE_RESOURCE_GROUP}"
-    },
     "location": {
-      "value": "${AZURE_LOCATION}"
+      "value": "eastus2"
     },
     "principalId": {
       "value": "${AZURE_PRINCIPAL_ID}"
     },
-    "aiServicesLocation": {
-      "value": "${AZURE_AI_LOCATION=eastus2}"
-    },
     "defaultModelName": {
-      "value": "${AZURE_OPENAI_MODEL=gpt-5-mini}"
-    },
-    "defaultModelVersion": {
-      "value": "${AZURE_OPENAI_MODEL_VERSION=2025-08-07}"
-    },
-    "defaultModelCapacity": {
-      "value": "${AZURE_OPENAI_MODEL_CAPACITY=150}"
+      "value": "${AZURE_OPENAI_MODEL}"
     },
     "azureOpenAiAltEndpoint": {
-      "value": "${AZURE_OPENAI_ALT_ENDPOINT}"
+      "value": "${AZURE_OPENAI_API_ENDPOINT}"
     },
     "azureOpenAiApiKey": {
       "value": "${AZURE_OPENAI_API_KEY}"
     },
     "isContinuousIntegration": {
-      "value": "${CI=false}"
+      "value": false
     }
   }
 }

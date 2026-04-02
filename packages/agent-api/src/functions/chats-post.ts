@@ -87,10 +87,14 @@ export async function postChats(request: HttpRequest, context: InvocationContext
     }
 
     const model = new ChatOpenAI({
-      configuration: { baseURL: azureOpenAiEndpoint },
-      modelName: process.env.AZURE_OPENAI_MODEL ?? 'gpt-5-mini',
+      configuration: {
+        baseURL: azureOpenAiEndpoint,
+        defaultQuery: { 'api-version': process.env.OPENAI_API_VERSION ?? '2025-01-01-preview' },
+        defaultHeaders: { 'api-key': process.env.AZURE_OPENAI_API_KEY },
+      },
+      modelName: process.env.AZURE_OPENAI_MODEL ?? 'o4-mini',
       streaming: true,
-      useResponsesApi: true,
+      useResponsesApi: false,
       apiKey: process.env.AZURE_OPENAI_API_KEY ?? getAzureOpenAiTokenProvider(),
     });
     const chatHistory = azureCosmosDbEndpoint
@@ -178,7 +182,7 @@ export async function postChats(request: HttpRequest, context: InvocationContext
         // This content type is needed for streaming responses
         // when using a SWA linked backend API
         'Content-Type': 'text/event-stream',
-        'Transfer-Encoding': 'chunked',
+        // 'Transfer-Encoding': 'chunked',
       },
       body: jsonStream,
     };

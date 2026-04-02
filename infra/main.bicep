@@ -1,4 +1,4 @@
-targetScope = 'subscription'
+targetScope = 'resourceGroup'
 
 @minLength(1)
 @maxLength(64)
@@ -7,8 +7,6 @@ param environmentName string
 
 @minLength(1)
 @description('Primary location for all resources')
-// Flex Consumption functions are only supported in these regions.
-// Run `az functionapp list-flexconsumption-locations --output table` to get the latest list
 @allowed([
   'northeurope'
   'uksouth'
@@ -24,7 +22,6 @@ param environmentName string
 ])
 param location string
 
-param resourceGroupName string = ''
 param burgerApiServiceName string = 'burger-api'
 param burgerMcpServiceName string = 'burger-mcp'
 param burgerWebappName string = 'burger-webapp'
@@ -32,50 +29,25 @@ param agentApiServiceName string = 'agent-api'
 param agentWebappName string = 'agent-webapp'
 param blobContainerName string = 'blobs'
 
-@description('Location for the AI Foundry resource group')
-@allowed([
-  // Regions where gpt-5-mini is available,
-  // see https://learn.microsoft.com/azure/ai-foundry/foundry-models/concepts/models-sold-directly-by-azure?pivots=azure-openai&tabs=global-standard-aoai%2Cstandard-chat-completions%2Cglobal-standard#global-standard-model-availability
-  'australiaeast'
-  'eastus'
-  'eastus2'
-  'japaneast'
-  'koreacentral'
-  'sounthindia'
-  'swedencentral'
-  'switzerlandnorth'
-  'uksouth'
-])
-@metadata({
-  azd: {
-    type: 'location'
-  }
-})
-param aiServicesLocation string // Set in main.parameters.json
-param defaultModelName string // Set in main.parameters.json
-param defaultModelVersion string // Set in main.parameters.json
-param defaultModelCapacity int // Set in main.parameters.json
-
-// Location is not relevant here as it's only for the built-in api
-// which is not used here. Static Web App is a global service otherwise
 @description('Location for the Static Web App')
 @allowed(['westus2', 'centralus', 'eastus2', 'westeurope', 'eastasia'])
-@metadata({
-  azd: {
-    type: 'location'
-  }
-})
 param webappLocation string = 'eastus2'
 
-// Alternative OpenAI endpoint and API key to use instead of the Azure OpenAI service
-param azureOpenAiAltEndpoint string = ''
-param azureOpenAiApiKey string = ''
+// Your existing Azure OpenAI endpoint and API key — required since we skip aiFoundry
+@description('Your Azure OpenAI endpoint (required)')
+param azureOpenAiAltEndpoint string
+
+@description('Your Azure OpenAI API key (required)')
+param azureOpenAiApiKey string
+
+@description('The model deployment name on your Azure OpenAI resource')
+param defaultModelName string
 
 // Id of the user or app to assign application roles
 param principalId string = ''
 
 // Differentiates between automated and manual deployments
-param isContinuousIntegration bool // Set in main.parameters.json
+param isContinuousIntegration bool = false
 
 // ---------------------------------------------------------------------------
 // Common variables
@@ -89,7 +61,9 @@ var burgerApiResourceName = '${abbrs.webSitesFunctions}burger-api-${resourceToke
 var burgerMcpResourceName = '${abbrs.webSitesFunctions}burger-mcp-${resourceToken}'
 var agentApiResourceName = '${abbrs.webSitesFunctions}agent-api-${resourceToken}'
 var storageAccountName = '${abbrs.storageStorageAccounts}${resourceToken}'
-var openAiUrl = empty(azureOpenAiAltEndpoint) ? 'https://${aiFoundry.outputs.aiServicesName}.openai.azure.com/openai/v1' : azureOpenAiAltEndpoint
+
+// Use the provided Azure OpenAI endpoint directly
+var openAiUrl = azureOpenAiAltEndpoint
 var storageUrl = 'https://${storage.outputs.name}.blob.${environment().suffixes.storage}'
 var burgerApiUrl = 'https://${burgerApiFunction.outputs.defaultHostname}'
 var burgerMcpUrl = 'https://${burgerMcpFunction.outputs.defaultHostname}/mcp'
@@ -100,15 +74,8 @@ var agentWebappUrl = 'https://${agentWebapp.outputs.defaultHostname}'
 // ---------------------------------------------------------------------------
 // Resources
 
-resource resourceGroup 'Microsoft.Resources/resourceGroups@2021-04-01' = {
-  name: !empty(resourceGroupName) ? resourceGroupName : '${abbrs.resourcesResourceGroups}${environmentName}'
-  location: location
-  tags: tags
-}
-
 module burgerApiFunction 'br/public:avm/res/web/site:0.16.1' = {
   name: 'burger-api'
-  scope: resourceGroup
   params: {
     tags: union(tags, { 'azd-service-name': burgerApiServiceName })
     location: location
@@ -128,9 +95,7 @@ module burgerApiFunction 'br/public:avm/res/web/site:0.16.1' = {
       minTlsVersion: '1.2'
       ftpsState: 'FtpsOnly'
       cors: {
-        allowedOrigins: [
-          '*'
-        ]
+        allowedOrigins: ['*']
         supportCredentials: false
       }
     }
@@ -162,10 +127,8 @@ module burgerApiFunction 'br/public:avm/res/web/site:0.16.1' = {
   }
 }
 
-// Needed to avoid circular resource dependencies
 module burgerApiFunctionSettings 'br/public:avm/res/web/site/config:0.1.0' = {
   name: 'burger-api-settings'
-  scope: resourceGroup
   params: {
     name: 'appsettings'
     appName: burgerApiFunction.outputs.name
@@ -182,7 +145,6 @@ module burgerApiFunctionSettings 'br/public:avm/res/web/site/config:0.1.0' = {
 
 module burgerApiAppServicePlan 'br/public:avm/res/web/serverfarm:0.4.1' = {
   name: 'burger-api-appserviceplan'
-  scope: resourceGroup
   params: {
     name: '${abbrs.webServerFarms}burger-api-${resourceToken}'
     tags: tags
@@ -194,7 +156,6 @@ module burgerApiAppServicePlan 'br/public:avm/res/web/serverfarm:0.4.1' = {
 
 module burgerWebapp 'br/public:avm/res/web/static-site:0.9.3' = {
   name: 'burger-webapp'
-  scope: resourceGroup
   params: {
     name: burgerWebappName
     location: webappLocation
@@ -204,7 +165,6 @@ module burgerWebapp 'br/public:avm/res/web/static-site:0.9.3' = {
 
 module agentApiFunction 'br/public:avm/res/web/site:0.16.1' = {
   name: 'agent-api'
-  scope: resourceGroup
   params: {
     tags: union(tags, { 'azd-service-name': agentApiServiceName })
     location: location
@@ -224,9 +184,7 @@ module agentApiFunction 'br/public:avm/res/web/site:0.16.1' = {
       minTlsVersion: '1.2'
       ftpsState: 'FtpsOnly'
       cors: {
-        allowedOrigins: [
-          '*'
-        ]
+        allowedOrigins: ['*']
         supportCredentials: false
       }
     }
@@ -258,17 +216,15 @@ module agentApiFunction 'br/public:avm/res/web/site:0.16.1' = {
   }
 }
 
-// Needed to avoid circular resource dependencies
 module agentApiFunctionSettings 'br/public:avm/res/web/site/config:0.1.0' = {
   name: 'agent-api-settings'
-  scope: resourceGroup
   params: {
     name: 'appsettings'
     appName: agentApiFunction.outputs.name
     properties: {
       AZURE_COSMOSDB_NOSQL_ENDPOINT: cosmosDb.outputs.endpoint
       AZURE_OPENAI_API_ENDPOINT: openAiUrl
-      AZURE_OPENAI_API_KEY: azureOpenAiApiKey // When empty, managed identity will be used
+      AZURE_OPENAI_API_KEY: azureOpenAiApiKey
       AZURE_OPENAI_MODEL: defaultModelName
       BURGER_MCP_URL: burgerMcpUrl
     }
@@ -280,7 +236,6 @@ module agentApiFunctionSettings 'br/public:avm/res/web/site/config:0.1.0' = {
 
 module agentApiAppServicePlan 'br/public:avm/res/web/serverfarm:0.4.1' = {
   name: 'agent-api-appserviceplan'
-  scope: resourceGroup
   params: {
     name: '${abbrs.webServerFarms}agent-api-${resourceToken}'
     tags: tags
@@ -292,7 +247,6 @@ module agentApiAppServicePlan 'br/public:avm/res/web/serverfarm:0.4.1' = {
 
 module agentWebapp 'br/public:avm/res/web/static-site:0.9.3' = {
   name: 'agent-webapp'
-  scope: resourceGroup
   params: {
     name: agentWebappName
     location: webappLocation
@@ -307,7 +261,6 @@ module agentWebapp 'br/public:avm/res/web/static-site:0.9.3' = {
 
 module burgerMcpFunction 'br/public:avm/res/web/site:0.16.1' = {
   name: 'burger-mcp'
-  scope: resourceGroup
   params: {
     tags: union(tags, { 'azd-service-name': burgerMcpServiceName })
     location: location
@@ -327,9 +280,7 @@ module burgerMcpFunction 'br/public:avm/res/web/site:0.16.1' = {
       minTlsVersion: '1.2'
       ftpsState: 'FtpsOnly'
       cors: {
-        allowedOrigins: [
-          '*'
-        ]
+        allowedOrigins: ['*']
         supportCredentials: false
       }
     }
@@ -361,10 +312,8 @@ module burgerMcpFunction 'br/public:avm/res/web/site:0.16.1' = {
   }
 }
 
-// Needed to avoid circular resource dependencies
 module burgerMcpFunctionSettings 'br/public:avm/res/web/site/config:0.1.0' = {
   name: 'burger-mcp-settings'
-  scope: resourceGroup
   params: {
     name: 'appsettings'
     appName: burgerMcpFunction.outputs.name
@@ -382,7 +331,6 @@ module burgerMcpFunctionSettings 'br/public:avm/res/web/site/config:0.1.0' = {
 
 module burgerMcpAppServicePlan 'br/public:avm/res/web/serverfarm:0.4.1' = {
   name: 'burger-mcp-appserviceplan'
-  scope: resourceGroup
   params: {
     name: '${abbrs.webServerFarms}burger-mcp-${resourceToken}'
     tags: tags
@@ -394,7 +342,6 @@ module burgerMcpAppServicePlan 'br/public:avm/res/web/serverfarm:0.4.1' = {
 
 module storage 'br/public:avm/res/storage/storage-account:0.26.2' = {
   name: 'storage'
-  scope: resourceGroup
   params: {
     name: storageAccountName
     tags: tags
@@ -409,15 +356,9 @@ module storage 'br/public:avm/res/storage/storage-account:0.26.2' = {
     }
     blobServices: {
       containers: [
-        {
-          name: burgerApiResourceName
-        }
-        {
-          name: agentApiResourceName
-        }
-        {
-          name: burgerMcpResourceName
-        }
+        { name: burgerApiResourceName }
+        { name: agentApiResourceName }
+        { name: burgerMcpResourceName }
         {
           name: blobContainerName
           publicAccess: 'None'
@@ -436,7 +377,6 @@ module storage 'br/public:avm/res/storage/storage-account:0.26.2' = {
 
 module monitoring 'br/public:avm/ptn/azd/monitoring:0.2.1' = {
   name: 'monitoring'
-  scope: resourceGroup
   params: {
     tags: tags
     location: location
@@ -446,47 +386,8 @@ module monitoring 'br/public:avm/ptn/azd/monitoring:0.2.1' = {
   }
 }
 
-module aiFoundry 'br/public:avm/ptn/ai-ml/ai-foundry:0.4.0' = if (empty(azureOpenAiAltEndpoint)) {
-  name: 'aiFoundry'
-  scope: resourceGroup
-  params: {
-    baseName: substring(resourceToken, 0, 12) // Max 12 chars
-    tags: tags
-    location: aiServicesLocation
-    aiFoundryConfiguration: {
-      roleAssignments: [
-        {
-          principalId: principalId
-          principalType: principalType
-          roleDefinitionIdOrName: 'Cognitive Services OpenAI User'
-        }
-        {
-          principalId: agentApiFunction.outputs.?systemAssignedMIPrincipalId!
-          principalType: 'ServicePrincipal'
-          roleDefinitionIdOrName: 'Cognitive Services OpenAI User'
-       }
-      ]
-    }
-    aiModelDeployments: [
-      {
-        name: defaultModelName
-        model: {
-          format: 'OpenAI'
-          name: defaultModelName
-          version: defaultModelVersion
-        }
-        sku: {
-          capacity: defaultModelCapacity
-          name: 'GlobalStandard'
-        }
-      }
-    ]
-  }
-}
-
 module cosmosDb 'br/public:avm/res/document-db/database-account:0.16.0' = {
   name: 'cosmosDb'
-  scope: resourceGroup
   params: {
     name: '${abbrs.documentDBDatabaseAccounts}${resourceToken}'
     tags: tags
@@ -507,46 +408,21 @@ module cosmosDb 'br/public:avm/res/document-db/database-account:0.16.0' = {
     sqlDatabases: [
       {
         containers: [
-          {
-            name: 'orders'
-            paths: [
-              '/id'
-            ]
-          }
-          {
-            name: 'burgers'
-            paths: [
-              '/id'
-            ]
-          }
-          {
-            name: 'toppings'
-            paths: [
-              '/id'
-            ]
-          }
+          { name: 'orders', paths: ['/id'] }
+          { name: 'burgers', paths: ['/id'] }
+          { name: 'toppings', paths: ['/id'] }
         ]
         name: 'burgerDB'
       }
       {
         containers: [
-          {
-            name: 'users'
-            paths: [
-              '/id'
-            ]
-          }
+          { name: 'users', paths: ['/id'] }
         ]
         name: 'userDB'
       }
       {
         containers: [
-          {
-            name: 'history'
-            paths: [
-              '/userId'
-            ]
-          }
+          { name: 'history', paths: ['/userId'] }
         ]
         name: 'historyDB'
       }
@@ -570,13 +446,12 @@ module cosmosDb 'br/public:avm/res/document-db/database-account:0.16.0' = {
 }
 
 // ---------------------------------------------------------------------------
-// System roles assignation
+// System role assignments
 
 module storageRoleBurgerApi 'br/public:avm/ptn/authorization/resource-role-assignment:0.1.2' = {
-  scope: resourceGroup
   name: 'storage-role-burger-api'
   params: {
-    principalId: burgerApiFunction.outputs.?systemAssignedMIPrincipalId!
+    principalId: burgerApiFunction.outputs.systemAssignedMIPrincipalId!
     roleName: 'Storage Blob Data Contributor'
     roleDefinitionId: 'b7e6dc6d-f1e8-4753-8033-0f276bb0955b'
     resourceId: storage.outputs.resourceId
@@ -584,10 +459,9 @@ module storageRoleBurgerApi 'br/public:avm/ptn/authorization/resource-role-assig
 }
 
 module storageRoleAgentApi 'br/public:avm/ptn/authorization/resource-role-assignment:0.1.2' = {
-  scope: resourceGroup
   name: 'storage-role-agent-api'
   params: {
-    principalId: agentApiFunction.outputs.?systemAssignedMIPrincipalId!
+    principalId: agentApiFunction.outputs.systemAssignedMIPrincipalId!
     roleName: 'Storage Blob Data Contributor'
     roleDefinitionId: 'b7e6dc6d-f1e8-4753-8033-0f276bb0955b'
     resourceId: storage.outputs.resourceId
@@ -595,10 +469,9 @@ module storageRoleAgentApi 'br/public:avm/ptn/authorization/resource-role-assign
 }
 
 module storageRoleBurgerMcp 'br/public:avm/ptn/authorization/resource-role-assignment:0.1.2' = {
-  scope: resourceGroup
   name: 'storage-role-burger-mcp'
   params: {
-    principalId: burgerMcpFunction.outputs.?systemAssignedMIPrincipalId!
+    principalId: burgerMcpFunction.outputs.systemAssignedMIPrincipalId!
     roleName: 'Storage Blob Data Contributor'
     roleDefinitionId: 'b7e6dc6d-f1e8-4753-8033-0f276bb0955b'
     resourceId: storage.outputs.resourceId
@@ -610,7 +483,6 @@ module storageRoleBurgerMcp 'br/public:avm/ptn/authorization/resource-role-assig
 
 output AZURE_LOCATION string = location
 output AZURE_TENANT_ID string = tenant().tenantId
-output AZURE_RESOURCE_GROUP string = resourceGroup.name
 
 output BURGER_API_URL string = burgerApiUrl
 output BURGER_MCP_URL string = burgerMcpUrl
@@ -625,5 +497,3 @@ output AZURE_COSMOSDB_NOSQL_ENDPOINT string = cosmosDb.outputs.endpoint
 
 output AZURE_OPENAI_API_ENDPOINT string = openAiUrl
 output AZURE_OPENAI_MODEL string = defaultModelName
-
-output GENAISCRIPT_DEFAULT_MODEL string = 'azure:${defaultModelName}'
