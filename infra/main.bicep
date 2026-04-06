@@ -85,7 +85,7 @@ module burgerApiFunction 'br/public:avm/res/web/site:0.16.1' = {
     configs: [
       {
         name: 'appsettings'
-        applicationInsightResourceId: monitoring.outputs.applicationInsightsResourceId
+        applicationInsightResourceId: appInsights.id
         storageAccountResourceId: storage.outputs.resourceId
         storageAccountUseIdentityAuthentication: true
       }
@@ -139,7 +139,7 @@ module burgerApiFunctionSettings 'br/public:avm/res/web/site/config:0.1.0' = {
     }
     storageAccountResourceId: storage.outputs.resourceId
     storageAccountUseIdentityAuthentication: true
-    applicationInsightResourceId: monitoring.outputs.applicationInsightsResourceId
+    applicationInsightResourceId: appInsights.id
   }
 }
 
@@ -174,7 +174,7 @@ module agentApiFunction 'br/public:avm/res/web/site:0.16.1' = {
     configs: [
       {
         name: 'appsettings'
-        applicationInsightResourceId: monitoring.outputs.applicationInsightsResourceId
+        applicationInsightResourceId: appInsights.id
         storageAccountResourceId: storage.outputs.resourceId
         storageAccountUseIdentityAuthentication: true
       }
@@ -230,7 +230,7 @@ module agentApiFunctionSettings 'br/public:avm/res/web/site/config:0.1.0' = {
     }
     storageAccountResourceId: storage.outputs.resourceId
     storageAccountUseIdentityAuthentication: true
-    applicationInsightResourceId: monitoring.outputs.applicationInsightsResourceId
+    applicationInsightResourceId: appInsights.id
   }
 }
 
@@ -270,7 +270,7 @@ module burgerMcpFunction 'br/public:avm/res/web/site:0.16.1' = {
     configs: [
       {
         name: 'appsettings'
-        applicationInsightResourceId: monitoring.outputs.applicationInsightsResourceId
+        applicationInsightResourceId: appInsights.id
         storageAccountResourceId: storage.outputs.resourceId
         storageAccountUseIdentityAuthentication: true
       }
@@ -325,7 +325,7 @@ module burgerMcpFunctionSettings 'br/public:avm/res/web/site/config:0.1.0' = {
     }
     storageAccountResourceId: storage.outputs.resourceId
     storageAccountUseIdentityAuthentication: true
-    applicationInsightResourceId: monitoring.outputs.applicationInsightsResourceId
+    applicationInsightResourceId: appInsights.id
   }
 }
 
@@ -375,14 +375,26 @@ module storage 'br/public:avm/res/storage/storage-account:0.26.2' = {
   }
 }
 
-module monitoring 'br/public:avm/ptn/azd/monitoring:0.2.1' = {
-  name: 'monitoring'
-  params: {
-    tags: tags
-    location: location
-    applicationInsightsName: '${abbrs.insightsComponents}${resourceToken}'
-    applicationInsightsDashboardName: '${abbrs.portalDashboards}${resourceToken}'
-    logAnalyticsName: '${abbrs.operationalInsightsWorkspaces}${resourceToken}'
+resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2022-10-01' = {
+  name: '${abbrs.operationalInsightsWorkspaces}${resourceToken}'
+  location: location
+  tags: tags
+  properties: {
+    sku: {
+      name: 'PerGB2018'
+    }
+    retentionInDays: 30
+  }
+}
+
+resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
+  name: '${abbrs.insightsComponents}${resourceToken}'
+  location: location
+  tags: tags
+  kind: 'web'
+  properties: {
+    Application_Type: 'web'
+    WorkspaceResourceId: logAnalytics.id
   }
 }
 
