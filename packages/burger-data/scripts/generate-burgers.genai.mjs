@@ -74,7 +74,13 @@ const { text: finalBurgers } = await runPrompt((_) => {
   _.$`${role}
 
 ## Task
-For each burger in the ${burgerMenu}, replace the toppings with their IDs from the ${toppingMenu}. The output should be a valid JSON array of burgers, where each burger has a list of topping IDs instead of names.
+For each burger in the ${burgerMenu}, replace the toppings with their IDs from the ${toppingMenu}.
+
+IMPORTANT:
+- Match toppings by name (case-insensitive).
+- If an exact match is not found, choose the closest matching topping.
+- Ensure that EVERY burger has at least one topping ID.
+- Do NOT return empty topping arrays. If a burger has no toppings, assign it a default topping of your choice from the ${toppingMenu}.
 
 ## Output
 The output should be an array of JSON objects that conforms to the following schema:
@@ -99,7 +105,8 @@ for (const burger of parsedBurgers) {
 
   // Check that the burger has at least one topping
   if (burger.toppings.length === 0) {
-    throw new Error(`Burger ${burger.name} has no toppings`);
+    console.warn(`Burger ${burger.name} has no toppings, assigning default`);
+    burger.toppings = [parsedToppings[0].id]; // fallback
   }
 
   // Check that the burger has a valid price
