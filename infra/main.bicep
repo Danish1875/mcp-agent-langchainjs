@@ -143,6 +143,24 @@ module burgerApiFunctionSettings 'br/public:avm/res/web/site/config:0.1.0' = {
   }
 }
 
+// Explicitly disable Easy Auth on burger-api
+module burgerApiAuthDisable 'br/public:avm/res/web/site/config:0.1.0' = {
+  name: 'burger-api-auth-disable'
+  params: {
+    name: 'authsettingsV2'
+    appName: burgerApiFunction.outputs.name
+    properties: {
+      globalValidation: {
+        requireAuthentication: false
+        unauthenticatedClientAction: 'AllowAnonymous'
+      }
+      platform: {
+        enabled: false
+      }
+    }
+  }
+}
+
 module burgerApiAppServicePlan 'br/public:avm/res/web/serverfarm:0.4.1' = {
   name: 'burger-api-appserviceplan'
   params: {
